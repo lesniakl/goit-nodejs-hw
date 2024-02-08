@@ -13,4 +13,9 @@ const schema = Joi.object({
   favorite: Joi.boolean(),
 });
 
-export { schema, schemaReq };
+const schemaUser = Joi.object({
+  email: Joi.string().email().required(),
+  password: Joi.string().alphanum().min(2).max(30).required(),
+});
+
+export { schema, schemaReq, schemaUser };
