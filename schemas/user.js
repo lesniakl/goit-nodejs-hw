@@ -11,6 +11,10 @@ const users = new Schema({
     required: [true, "Email is required"],
     unique: true,
   },
+  avatarURL: {
+    type: String,
+    default: null,
+  },
   subscription: {
     type: String,
     enum: ["starter", "pro", "business"],
