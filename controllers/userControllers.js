@@ -82,10 +82,9 @@ const loginUser = async (req, res, next) => {
 };
 
 const logoutUser = async (req, res, next) => {
-  console.log("tutaj");
   try {
     const { id } = req.user;
-    const user = await User.findByIdAndUpdate(id, { token: null });
+    await User.findByIdAndUpdate(id, { token: null });
     req.user = null;
     return res.status(204).end();
   } catch (error) {
@@ -98,13 +97,6 @@ const logoutUser = async (req, res, next) => {
 };
 
 const currentUser = async (req, res, next) => {
-  if (!req.user) {
-    return res.status(401).json({
-      status: "error",
-      code: 401,
-      message: "Not authorized",
-    });
-  }
   const { email, subscription } = req.user;
   return res.status(200).json({
     status: "success",
