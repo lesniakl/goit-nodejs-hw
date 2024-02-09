@@ -1,12 +1,14 @@
 import express from "express";
 import morgan from "morgan";
 import cors from "cors";
+import path from "path";
 import "./auth/strategyJWT.js";
 
 import { router as contactsRouter } from "./routes/api/contacts.js";
 import { router as usersRouter } from "./routes/api/users.js";
 
 const app = express();
+app.use(express.static(path.join(process.cwd(), "public")));
 
 const formatsLogger = app.get("env") === "development" ? "dev" : "short";
 
