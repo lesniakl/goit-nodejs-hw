@@ -2,6 +2,10 @@ import { User } from "../schemas/user.js";
 import { schemaUser } from "../validation/validation.js";
 import jwt from "jsonwebtoken";
 import "dotenv/config";
+import { promises as fs } from "fs";
+import path from "path";
+import gravatar from "gravatar";
+import jimp from "jimp";
 
 const secret = process.env.SECRET;
 
@@ -24,7 +28,8 @@ const registerUser = async (req, res, next) => {
     });
   }
   try {
-    const newUser = new User({ email });
+    const avatarURL = gravatar.url(email, { s: "250" });
+    const newUser = new User({ email, avatarURL });
     newUser.setPassword(password);
     await newUser.save();
     res.status(201).json({
@@ -32,6 +37,7 @@ const registerUser = async (req, res, next) => {
       code: 201,
       data: {
         email,
+        avatarURL,
         subscription: newUser.subscription,
       },
     });
@@ -82,10 +88,9 @@ const loginUser = async (req, res, next) => {
 };
 
 const logoutUser = async (req, res, next) => {
-  console.log("tutaj");
   try {
     const { id } = req.user;
-    const user = await User.findByIdAndUpdate(id, { token: null });
+    await User.findByIdAndUpdate(id, { token: null });
     req.user = null;
     return res.status(204).end();
   } catch (error) {
@@ -98,13 +103,6 @@ const logoutUser = async (req, res, next) => {
 };
 
 const currentUser = async (req, res, next) => {
-  if (!req.user) {
-    return res.status(401).json({
-      status: "error",
-      code: 401,
-      message: "Not authorized",
-    });
-  }
   const { email, subscription } = req.user;
   return res.status(200).json({
     status: "success",
@@ -116,4 +114,36 @@ const currentUser = async (req, res, next) => {
   });
 };
 
-export { registerUser, loginUser, logoutUser, currentUser };
+const updateAvatar = async (req, res, next) => {
+  if (!req.file) {
+    return res.status(400).json({
+      status: "error",
+      code: 400,
+      message: "No file attached",
+    });
+  }
+  try {
+    const { id } = req.user;
+    const { filename, path: tmpPath } = req.file;
+    const avatar = await jimp.read(tmpPath);
+    const fullName = `${filename}.${avatar.getExtension()}`;
+    const newPath = path.join(process.cwd(), "public/avatars", fullName);
+    await avatar.resize(250, 250);
+    await fs.rename(tmpPath, newPath);
+    const avatarURL = `/avatars/${fullName}`;
+    await User.findByIdAndUpdate(id, { avatarURL });
+    return res.status(201).json({
+      status: "success",
+      code: 200,
+      data: { avatarURL },
+    });
+  } catch (error) {
+    return res.status(401).json({
+      status: "error",
+      code: 401,
+      message: "Not authorized",
+    });
+  }
+};
+
+export { registerUser, loginUser, logoutUser, currentUser, updateAvatar };
