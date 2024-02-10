@@ -1,11 +1,13 @@
 import { User } from "../schemas/user.js";
-import { schemaUser } from "../validation/validation.js";
+import { schemaResend, schemaUser } from "../validation/validation.js";
 import jwt from "jsonwebtoken";
 import "dotenv/config";
 import { promises as fs } from "fs";
 import path from "path";
 import gravatar from "gravatar";
 import jimp from "jimp";
+import { nanoid } from "nanoid";
+import { sendToken } from "./emails.js";
 
 const secret = process.env.SECRET;
 
@@ -29,9 +31,11 @@ const registerUser = async (req, res, next) => {
   }
   try {
     const avatarURL = gravatar.url(email, { s: "250" });
-    const newUser = new User({ email, avatarURL });
+    const verificationToken = nanoid();
+    const newUser = new User({ email, avatarURL, verificationToken });
     newUser.setPassword(password);
     await newUser.save();
+    await sendToken(email, verificationToken);
     res.status(201).json({
       status: "success",
       code: 201,
@@ -66,6 +70,13 @@ const loginUser = async (req, res, next) => {
       status: "error",
       code: 401,
       message: "Email or password is wrong",
+    });
+  }
+  if (!user.verify) {
+    return res.status(401).json({
+      status: "error",
+      code: 401,
+      message: "Please verify your account first",
     });
   }
 
@@ -146,4 +157,60 @@ const updateAvatar = async (req, res, next) => {
   }
 };
 
-export { registerUser, loginUser, logoutUser, currentUser, updateAvatar };
+const verifyToken = async (req, res, next) => {
+  const { verificationToken } = req.params;
+  const user = await User.findOne({ verificationToken });
+  if (!user) {
+    return res.status(404).json({
+      status: "error",
+      code: 404,
+      message: "Not found",
+    });
+  }
+  await User.findByIdAndUpdate(user._id, {
+    verificationToken: null,
+    verify: true,
+  });
+  return res.status(200).json({
+    status: "success",
+    code: 200,
+    message: "Verification successful",
+  });
+};
+
+const resendToken = async (req, res, next) => {
+  const { email } = req.body;
+  const validationError = schemaResend.validate({ email }).error;
+  if (validationError) {
+    return res.status(400).json({
+      status: "error",
+      code: 400,
+      message: validationError.message,
+    });
+  }
+  const user = await User.findOne({ email });
+  if (!user || user.verify) {
+    return res.status(400).json({
+      status: "error",
+      code: 400,
+      message:
+        "Verification has already been passed or no account with this email exists",
+    });
+  }
+  await sendToken(email, user.verificationToken);
+  return res.status(200).json({
+    status: "success",
+    code: 200,
+    message: "Verification email sent",
+  });
+};
+
+export {
+  registerUser,
+  loginUser,
+  logoutUser,
+  currentUser,
+  updateAvatar,
+  verifyToken,
+  resendToken,
+};
