@@ -18,4 +18,8 @@ const schemaUser = Joi.object({
   password: Joi.string().alphanum().min(2).max(30).required(),
 });
 
-export { schema, schemaReq, schemaUser };
+const schemaResend = Joi.object({
+  email: Joi.string().email().required(),
+});
+
+export { schema, schemaReq, schemaUser, schemaResend };
